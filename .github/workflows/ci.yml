@@ -9,9 +9,10 @@ on:
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
-    env:
-      # Make the repo root importable for tests
-      PYTHONPATH: ${{ github.workspace }}
+
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout code
@@ -39,8 +40,8 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-         OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-         IMAGE="ghcr.io/${OWNER}/fastapi-k8s-demo:latest"
-         docker build -t "$IMAGE" .
-         docker push "$IMAGE"
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${OWNER}/fastapi-k8s-demo:latest"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
 
