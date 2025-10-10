@@ -25,6 +25,11 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run tests
+        env:
+            PYTHONPATH: ${{ github.workspace }}
+        run: pytest -q
+
+      - name: Run tests
         run: pytest -q
 
       - name: Log in to GitHub Container Registry
