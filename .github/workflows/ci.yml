@@ -9,6 +9,9 @@ on:
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
+    env:
+      # Make the repo root importable for tests
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout code
@@ -25,11 +28,6 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run tests
-        env:
-            PYTHONPATH: ${{ github.workspace }}
-        run: pytest -q
-
-      - name: Run tests
         run: pytest -q
 
       - name: Log in to GitHub Container Registry
@@ -41,8 +39,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/fastapi-k8s-demo:latest
-          docker build -t $IMAGE_NAME .
-          docker push $IMAGE_NAME
-
+          IMAGE=ghcr.io/${{ github.repository_owner }}/fastapi-k8s-demo
+          docker build -t $IMAGE:latest .
+          docker push $IMAGE:latest
 
