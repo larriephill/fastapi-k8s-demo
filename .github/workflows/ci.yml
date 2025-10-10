@@ -1,18 +1,27 @@
-name: CI - Test and Build Docker Image
+name: CI - Test and Publish Docker Image
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   pull_request:
-    branches: ["main"]
+    branches: [ "main" ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test-and-build:
+  test-build-push:
     runs-on: ubuntu-latest
 
+    # Needed so GITHUB_TOKEN can push to GHCR in a personal repo
     permissions:
       contents: read
       packages: write
+
+    # Make the repo root importable so `from app.main import app` works in CI
+    env:
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout code
@@ -22,6 +31,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
@@ -31,17 +41,22 @@ jobs:
       - name: Run tests
         run: pytest -q
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to GitHub Container Registry (GHCR)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image to GHCR
         run: |
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          IMAGE="ghcr.io/${OWNER}/fastapi-k8s-demo:latest"
-          docker build -t "$IMAGE" .
-          docker push "$IMAGE"
+          IMAGE="ghcr.io/${OWNER}/fastapi-k8s-demo"
+          SHORT_SHA="${GITHUB_SHA::7}"
+
+          echo "Building $IMAGE:latest and $IMAGE:${SHORT_SHA}"
+
+          docker build -t "$IMAGE:latest" -t "$IMAGE:${SHORT_SHA}" .
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${SHORT_SHA}"
 
