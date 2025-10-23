@@ -1,0 +1,35 @@
+image:
+  repository: fastapi-k8s-local
+  tag: dev
+  pullPolicy: IfNotPresent
+
+service:
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: nginx
+  host: fastapi.local
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+
+env:
+  appVersion: "0.2.0"
+  appMessage: "Hello from ConfigMap via Helm 🎯"
+
+secret:
+  enabled: true
+  name: fastapi-secret
+  token: "super-secret-123"   # for demo; in real life, this should be set via --set or external Secret
+
+replicaCount: 1
+

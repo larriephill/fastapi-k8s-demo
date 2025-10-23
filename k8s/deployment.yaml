@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi
+  namespace: fastapi-demo
+  labels:
+    app: fastapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fastapi
+  template:
+    metadata:
+      labels:
+        app: fastapi
+    spec:
+      containers:
+        - name: fastapi
+          image: fastapi-k8s-local:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+
+          #Liveness & Readiness Probes
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+
+          # Resources (important for HPA testing)
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+
+          # Inject ConfigMap + Secret
+
+          env:
+            - name: APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: fastapi-config
+                  key: APP_VERSION
+            - name: APP_MESSAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: fastapi-config
+                  key: APP_MESSAGE
+            - name: SECRET_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: fastapi-secret
+                  key: SECRET_TOKEN
+

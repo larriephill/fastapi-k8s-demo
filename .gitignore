@@ -1,0 +1,7 @@
+# self-hosted runner & other large/ephemeral stuff
+actions-runner/
+runner/
+*.tar.gz
+*.zip
+*.log
+.env

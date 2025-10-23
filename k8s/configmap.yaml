@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fastapi-config
+  namespace: fastapi-demo
+data:
+  APP_MESSAGE: "Hello from ConfigMap via Kubernetes 🎯"
+  APP_VERSION: "0.2.0"
