@@ -13,13 +13,18 @@ concurrency:
 jobs:
   test-build-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.buildpush.outputs.image_uri }}
+      image_tag: ${{ steps.buildpush.outputs.image_tag }}
+
+
 
     # Needed so GITHUB_TOKEN can push to GHCR in a personal repo
     permissions:
       contents: read
       packages: write
 
-    # Make the repo root importable so `from app.main import app` works in CI
+    # This makes the repo root importable so `from app.main import app` works in CI
     env:
       PYTHONPATH: ${{ github.workspace }}
 
@@ -49,12 +54,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image to GHCR
+        id: buildpush
         run: |
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           IMAGE="ghcr.io/${OWNER}/fastapi-k8s-demo"
           SHORT_SHA="${GITHUB_SHA::7}"
 
-          echo "Building $IMAGE:latest and $IMAGE:${SHORT_SHA}"
+          echo "image_uri=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$SHORT_SHA" >> "$GITHUB_OUTPUT"
 
           docker build -t "$IMAGE:latest" -t "$IMAGE:${SHORT_SHA}" .
           docker push "$IMAGE:latest"
