@@ -17,7 +17,35 @@ jobs:
       image_uri: ${{ steps.buildpush.outputs.image_uri }}
       image_tag: ${{ steps.buildpush.outputs.image_tag }}
 
+  deploy:
+    needs: [test-build-push]
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main'   # only deploy pushes to main
+    env:
+      NAMESPACE: fastapi-demo
+      RELEASE: fastapi
+    steps:
+      - name: Checkout (for Helm chart files)
+        uses: actions/checkout@v4
 
+      - name: Show cluster context
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Ensure namespace
+        run: |
+          kubectl get ns $NAMESPACE || kubectl create ns $NAMESPACE
+
+      - name: Helm upgrade (deploy new image tag)
+        run: |
+          IMAGE_URI="${{ needs.test-build-push.outputs.image_uri }}"
+          IMAGE_TAG="${{ needs.test-build-push.outputs.image_tag }}"
+          echo "Deploying $IMAGE_URI:$IMAGE_TAG"
+          helm upgrade --install "$RELEASE" helm/fastapi -n "$NAMESPACE" \
+            --set image.repository="$IMAGE_URI" \
+            --set image.tag="$IMAGE_TAG"
+          kubectl -n "$NAMESPACE" rollout status deploy/fastapi
 
     # Needed so GITHUB_TOKEN can push to GHCR in a personal repo
     permissions:
