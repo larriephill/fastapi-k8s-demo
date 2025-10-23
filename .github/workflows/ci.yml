@@ -1,4 +1,4 @@
-name: CI - Test and Publish Docker Image
+name: CI - Test, Build, and Deploy
 
 on:
   push:
@@ -13,48 +13,19 @@ concurrency:
 jobs:
   test-build-push:
     runs-on: ubuntu-latest
-    outputs:
-      image_uri: ${{ steps.buildpush.outputs.image_uri }}
-      image_tag: ${{ steps.buildpush.outputs.image_tag }}
 
-  deploy:
-    needs: [test-build-push]
-    runs-on: self-hosted
-    if: github.ref == 'refs/heads/main'   # only deploy pushes to main
-    env:
-      NAMESPACE: fastapi-demo
-      RELEASE: fastapi
-    steps:
-      - name: Checkout (for Helm chart files)
-        uses: actions/checkout@v4
-
-      - name: Show cluster context
-        run: |
-          kubectl cluster-info
-          kubectl get nodes
-
-      - name: Ensure namespace
-        run: |
-          kubectl get ns $NAMESPACE || kubectl create ns $NAMESPACE
-
-      - name: Helm upgrade (deploy new image tag)
-        run: |
-          IMAGE_URI="${{ needs.test-build-push.outputs.image_uri }}"
-          IMAGE_TAG="${{ needs.test-build-push.outputs.image_tag }}"
-          echo "Deploying $IMAGE_URI:$IMAGE_TAG"
-          helm upgrade --install "$RELEASE" helm/fastapi -n "$NAMESPACE" \
-            --set image.repository="$IMAGE_URI" \
-            --set image.tag="$IMAGE_TAG"
-          kubectl -n "$NAMESPACE" rollout status deploy/fastapi
-
-    # Needed so GITHUB_TOKEN can push to GHCR in a personal repo
+    # So the job can push to GHCR
     permissions:
       contents: read
       packages: write
 
-    # This makes the repo root importable so `from app.main import app` works in CI
+    # Make imports work for tests (from app.main import app)
     env:
       PYTHONPATH: ${{ github.workspace }}
+
+    outputs:
+      image_uri: ${{ steps.buildpush.outputs.image_uri }}
+      image_tag: ${{ steps.buildpush.outputs.image_tag }}
 
     steps:
       - name: Checkout code
@@ -74,7 +45,7 @@ jobs:
       - name: Run tests
         run: pytest -q
 
-      - name: Log in to GitHub Container Registry (GHCR)
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -88,10 +59,43 @@ jobs:
           IMAGE="ghcr.io/${OWNER}/fastapi-k8s-demo"
           SHORT_SHA="${GITHUB_SHA::7}"
 
-          echo "image_uri=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "image_tag=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "image_uri=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
-          docker build -t "$IMAGE:latest" -t "$IMAGE:${SHORT_SHA}" .
-          docker push "$IMAGE:latest"
-          docker push "$IMAGE:${SHORT_SHA}"
+          docker build -t "${IMAGE}:latest" -t "${IMAGE}:${SHORT_SHA}" .
+          docker push "${IMAGE}:latest"
+          docker push "${IMAGE}:${SHORT_SHA}"
 
+  deploy:
+    needs: [ test-build-push ]
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main'   # only deploy pushes to main
+
+    env:
+      NAMESPACE: fastapi-demo
+      RELEASE: fastapi
+
+    steps:
+      - name: Checkout (for Helm chart files)
+        uses: actions/checkout@v4
+
+      - name: Show cluster context
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Ensure namespace exists
+        run: |
+          kubectl get ns "$NAMESPACE" || kubectl create ns "$NAMESPACE"
+
+      - name: Helm upgrade (deploy new image tag)
+        run: |
+          IMAGE_URI="${{ needs.test-build-push.outputs.image_uri }}"
+          IMAGE_TAG="${{ needs.test-build-push.outputs.image_tag }}"
+          echo "Deploying ${IMAGE_URI}:${IMAGE_TAG}"
+
+          helm upgrade --install "$RELEASE" helm/fastapi -n "$NAMESPACE" \
+            --set image.repository="$IMAGE_URI" \
+            --set image.tag="$IMAGE_TAG"
+
+          kubectl -n "$NAMESPACE" rollout status deploy/fastapi
