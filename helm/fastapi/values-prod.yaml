@@ -1,0 +1,24 @@
+replicaCount: 2
+
+image:
+  repository: fastapi-observability
+  tag: "prod"
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080
+  targetPort: 8000
+  type: ClusterIP
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 256Mi
+  limits:
+    cpu: 800m
+    memory: 512Mi
+
+env:
+  APP_MESSAGE: "FastAPI Production Service"
+  APP_VERSION: "1.0.0"
+
