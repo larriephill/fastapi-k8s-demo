@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: fastapi
   labels: { app: fastapi }
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .Values.service.targetPort }}"
+    prometheus.io/path: "/metrics"
 spec:
   type: ClusterIP
   selector: { app: fastapi }
